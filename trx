@@ -1,54 +1,31 @@
 #!/bin/bash
-# =======================================
-# AUTHOR: IAROM MADDEN future@iarom.org
-#
-# MOST-USED-ARGS:
-# 	- drr mosh.imp
-# 	- drr sshfs.imp
-# 	- drr ip.pull && drr mosh.imp
-#		- drr ip.pull && drr sshfs.imp
-#
-# DESCRIPTION
-# 	- Code related to automating commands that move stuff and connect to my phone.
-#
-# =======================================
 
-# TODO
-# - Move to separate repo
-# - Restructure the file adequately from it's original multifile setup
-# - MAKE ctags regex to match cases
-# - TODO: AUTOCOMPLETION FUNCTIONALITY??
+# IAROM MADDEN mail@iarom.org
+#
+# linux - termux macros
+#
+# most used handles
+# - mosh.imp
+# - sshfs.imp
+# - ip.pull && trx mosh.imp
+# - ip.pull && trx sshfs.imp
+#
+# shortcuts
+#   a)              trx mosh.imp ;;
+#   b)              trx sshfs.imp ;;
+#
 
 cmd=$1 && shift 1
 
-# essential setups
+## vars
 
-case $cmd in
-	a) trx mosh.imp ;;
-	b) trx sshfs.imp ;;
-esac
+termux_gitshare_dir="$HOME/.local/share/aax/trx"
+ip_termux="$termux_gitshare_dir/termux-ip-wlan"
+ip_manual="$XDG_CACHE_HOME/termux-ip"
+ipx="$(cat $ip_manual)"
+ipy="$(cat $ip_termux)"
+ip_ls="${ip_manual}_ls"
 
-## EXP
-
-_exp_firefox() {
-  dir_dat_moz="/data/data/org.mozilla.firefox/files/mozilla"
-  sqlite3 $dir_dat_moz/*.default/browser.db "SELECT url FROM tabs ORDER BY position" > /sdcard/0/d/tabs
-  #cd $dir_dat_moz/*.default/
-  #cd $dir_dat_moz/
-  cp $dir_dat_moz//*.default/ /sdcard/0s/firef.bkp
-}
-
-## VARS ##################################
-
-termux_gitshare_dir="$HOME/.local/share/aatrx"
-ip_termux="$termux_gitshare_dir/ip.dr.wlan"
-ip_file="$XDG_CACHE_HOME/drip"
-
-ipx="$(cat $ip_file)"
-ip_ls="${ip_file}_ls"
-
-adr="$ipx:$dr_r"
-sshfs_mnt="$HOME/.local/share/aaa/mnt/trx"
 
 # termux vars
 
@@ -57,371 +34,292 @@ trx_h="$trx_r/home"
 cfg_f="$trx_r/usr/etc/ssh/sshd_config"
 dr_r="/storage/emulated/0/0/"
 
-# FUNCS ===================================
+adr="$ipx:$dr_r"
+sshfs_mnt="$HOME/.local/share/aaa/mnt/termux.a"
 
-_sshfs_cmd() { adr=$1; mnt=$2; shift 2; sshfs $adr $mnt -p 8022 -o follow_symlinks -oStrictHostKeyChecking=no -C $@; }
 
-_adb_set() { # 2nd call sets up http server on termux
-	adb forward tcp:8022 tcp:8022
-	adb forward tcp:8080 tcp:8080 ;}
+# funcs
 
-_init_ip_i() { ip_i=$1 && shift 1; }
+_sshfs_cmd() {
+    adr=$1
+    mnt=$2
+    shift 2
+    sshfs $adr $mnt -p 8022 -o follow_symlinks -oStrictHostKeyChecking=no -C $@
+}
 
-_ssh() { ssh -p 8022 $2 -i ~/.ssh/id_rsa $@; }
+adb_set() {
+    # 2nd call sets up http server on termux
+    adb forward tcp:8022 tcp:8022
+    adb forward tcp:8080 tcp:8080
+}
 
-_mosh() { mosh --ssh="ssh -p 8022 -i ~/.ssh/id_rsa" $@; }
+_init_ip_i() {
+    ip_i=$1
+}
 
-_ip_pull() { cd $termux_gitshare_dir; git pull; cat $ip_termux > $ip_file; }
+_ssh()       { ssh -p 8022 $2 -i ~/.ssh/id_rsa $ip_i; }
+
+_mosh()      { mosh --ssh="ssh -p 8022 -i ~/.ssh/id_rsa" $ip_i; }
+
+_ip_pull()   {
+    cd $termux_gitshare_dir
+    git pull
+    cat $ip_termux > $ip_manual
+}
 
 _ip_find() {
-# SETS IP AUTOMATICALLY THROUGH SCANNING DEVICES ON PERSONAL HOTSPOT
-	# DESCRIPTION:
-	# - extracts list of ips using nmap
-	# - selects first one in list and saves it as the useable ip
-	# - android assigns my device ip as ..244 usually
-	# - so the android device is usually below this - as the first one in the list
-	# =====================================
-	nmap -n -sn 192.168.64.0/24 -oG - \
-		| awk '/Up$/{print $2}' \
-		> $ip_ls
-	head \
-		-n 1 $ip_ls \
-		> $ip_file ;}
+    # nmap scan local hotspot for ip address
+    # - selects first one in list and saves it as the useable ip
+    # - android ussually assings device ip as ..244
+    # - the android device is usually below this - as the first one in the list
+    nmap -n -sn 192.168.64.0/24 -oG - \
+        | awk '/Up$/{print $2}' > $ip_ls
+    head -n 1 $ip_ls > $ip_manual
+}
 
-_ssh_switch() {
-  printf "%s \n" "PrintMotd yes" \
-	  "PasswordAuthentication $1 " \
-		"Subsystem sftp /data/data/com.termux/files/usr/libexec/sftp-server" > $cfg_f ;}
+_sshd_pass_switch() {
+    printf "%s \n" "PrintMotd yes" \
+        "PasswordAuthentication $1 " \
+        "Subsystem sftp /data/data/com.termux/files/usr/libexec/sftp-server" > $cfg_f
+}
 
-# termux side ################################
+exp_firefox() {
+    dir_dat_moz="/data/data/org.mozilla.firefox/files/mozilla"
+    sqlite3 $dir_dat_moz/*.default/browser.db "SELECT url FROM tabs ORDER BY position" > /sdcard/0/d/tabs
+    cp $dir_dat_moz//*.default/ /sdcard/0s/firef.bkp
+}
+
+
+# termux
 
 case $1 in
-	pkg_ls) ;; # GENERATE PACKAGE LISTS todo
-	# Switch ssh password authentication on/off
-	ssh_p_on) _ssh_switch "yes" ;;
-	ssh_p_off) _ssh_switch "no" ;;
+    pkg_ls) ;;   # GENERATE PACKAGE LISTS todo
+    sshd_p_on)   _sshd_pass_switch "yes" ;;
+    sshd_p_off)  _sshd_pass_switch "no" ;;
+    exp_firefox) exp_firefox ;;
 esac
 
-# main ####################################
+
+# linux
 
 case $cmd in
-  # IP SETTING ==================================
-	ip.pull)       _ip_pull ;;# retrieve termux ip via github repo
-	ip.set)        echo "$1" > $ip_file ;;
-	ip.set.a)      echo "192.168.$1" > $ip_file ;;
-	ip.echo)       cat $ip_file ;;
-	ip.termux)     cat $ip_termux ;; # IP from file synced from termux
-	ip.find)       _ip_find ;;
-  # sshfs =======================================
-	sshfs.imp)     _init_ip_i; _sshfs_cmd "$ipx:"               $sshfs_mnt $@ ;; # ip from file
-	sshfs.pa)	     _init_ip_i; _sshfs_cmd "192.168.1.$ip_i:~/"  $sshfs_mnt $@ ;; # partial ip
-	sshfs.pb)		   _init_ip_i; _sshfs_cmd "192.168.$ip_i:~/"    $sshfs_mnt $@ ;; # partial ip
-	sshfs.a) 		   _init_ip_i; _sshfs_cmd "$ip_i:~/"            $sshfs_mnt $@ ;; # pull ip
-	sshfs.netfrac) _init_ip_i; _sshfs_cmd "iao@netfrac:$dr_r"   $sshfs_mnt $@ ;; # todo trg target?
-	sshfs.adb) 		 _adb_set;   _sshfs_cmd "$dr_r" $sshfs_mnt $@ ;; # usb
-  # SSH ===============================================
-	ssh.copyid)   ssh-copy-id -p 8022 $2 -i ~/.ssh/id_rsa $ipx ;;
-
-	ssh.b)        _ssh 192.168.$1 ;; #partial input ip
-	ssh.imp)      _ssh "$ipx" ;; # stored ip
-	ssh.netfrac)  _ssh iao@netfrac $@ ;;
-	ssh.usb)      _adb_set; ssh -p 8022 localhost ;;
-  # MOSH ##########################################
-	mosh.b)       _mosh 192.168.$1 ;;
-	mosh.imp)     _mosh $ipx tmux ;;
-	mosh.a)       _mosh $1 ;;
-	mosh.nf)      _mosh "iao@netfrac" ;;
-	mosh.usb)     _adb_set; _mosh iao@localhost ;;
-		## no need for mosh over usb?? unless in the case of a flimsy usb connection??
+  # ip
+    ip.pull)        _ip_pull ;;
+    ip.set.a)       echo "192.168.$1" > $ip_manual ;;
+    ip.set.b)       echo "$1" > $ip_manual ;;
+    ip.set.c)       echo "192.168.$1" > $ip_manual ;; # partial input ip
+    ip.echo)        cat $ip_manual ;;
+    ip.echo.termux) cat $ip_termux ;;
+    ip.find)        _ip_find ;;
+  # sshfs
+    sshfs|sshfs.termux) _sshfs_cmd "$ipy:~/"         $sshfs_mnt $@ ;;
+    sshfs.manual)       _sshfs_cmd "$ipx:~/"         $sshfs_mnt $@ ;;
+    sshfs.x)            _sshfs_cmd "x@neutron:$dr_r" $sshfs_mnt $@ ;;
+    sshfs.adb)          adb_set;  _sshfs_cmd "localhost:$dr_r" $sshfs_mnt $@ ;;
+  # ssh
+    ssh|ssh.termux) _ssh "${ipy}" ;;
+    ssh.manual)     _ssh "${ipx}" ;;
+    ssh.x)          _ssh x@neutron $@ ;;
+    ssh.usb)        adb_set; ssh -p 8022 localhost ;;
+    ssh.copyid)     ssh-copy-id -p 8022 $ipx ;;
+  # mosh
+    mosh|mosh.termux) _mosh $ipy tmux ;;
+    mosh.manual)      _mosh $ipx tmux ;;
+    mosh.a)           _mosh $1 ;;
+    mosh.x)           _mosh "x@neutron" ;;
 esac
 
-# MOVING - rsync ====================================
 
-mv_a() {
-	  src=$1; dst=$2; opt=$3
-	  rsync \
-			-avP $opt \
-			--remove-source-files \
-			--prune-empty-dirs \
-			-e 'ssh -p 8022' \
-			$src \
-			$dst ;}
+# rsync
+
+rs_mv() {
+    rsync -avP $opt \
+        --remove-source-files \
+        --prune-empty-dirs \
+        -e 'ssh -p 8022' \
+        $src $dst
+}
+
+rs_syc_cmd() {
+    rsync -avP $opt \
+        --delete \
+        --exclude=$excl \
+        -e 'ssh -p 8022' \
+        $src $dst
+}
+
+rs_syc_lp() {
+    src_ls=$(cat ${src_ls_file})
+    
+    for src_i in $src_ls; do
+        [ ! -d $(readlink ${src_i}) ] && continue
+        src=$src_root/$src_i
+        rs_syc_cmd
+    done
+}
+
+rs_syc_ini() {
+    src="$src_root$src_i/"
+    dst="$hst:$dst_root$dst_i/"
+}
+
+
+# syc & mv cases
 
 case $cmd in
-	ls.sd)
-		src_ls="~/z0
-		dst="dr/
-		##================
-		## for any files i would like to sync from android
-		#.first move them locally into a more logical directory hiearchy
-		#-------------
-		#~/zs/ ..:
-		#OpenNoteScanner/
-		#scn/
-		#where on laptop:
-		#/home/us/drdsync/scnii/
-		#localhost:~/s0/scn/ \
-		;;
-	
-	mv.usb.to-sd)
-		# sync with laptop as master branch 
-		# Don't delete destination files that arent on source
-		adb_set
-		rsync_ssh_syc \
-			"/data/ts/$1" \
-			"localhost:~/zs/$2" \
-			$3
-		;;
-
-# MOVING MV ========================================
-
-	mv.usb.to.dt)
-		## vars ==============
-		src_i=$1
-		dst_i=$2
-		opt=$3
-		ip="localhost"
-		src_prfx="~/"
-		dst_prfx="/data/ts"
-		src="$src_prfx/$src_i"
-		dst="$ip:$dst_prfx/$dst_i"
-		adb_set
-		mv.a $src $dst $opt
-		;;
-
-	rs_mv_adbusb_to_dr)
-		## vars ========================
-		hst="localhost"
-		src_prfx="/data"
-		dst_prfx="~/zs"
-		src="$src_prfx/$1"
-		dst="$hst:$dest_prfx/$2"
-	
-		opt="$3"
-	
-		adb_set
-		rs_mv $src $dest $opt
-		;;
-
+    syc-2t-ls) #TODO
+        #task #src_ls="~/z0"
+        dst="dr/"
+        rs_syc_lp
+        ;;
+    syc-2t)
+        # linux as master
+        src="/dat/$1"
+        dst="$ipy:~/0s/$2/"
+        rs_syc
+        ;;
+    syc-2t-lsaa) #TODO
+        src_ls_file="/home/$USER/.config/trx/syc-list-aa"
+        hst="$1"
+        rs_syc_lp
+        ;;
+    syc_imp_2sdlsaa) #TODO
+        hst=$(cat $ip_manual)
+        syc_2sdlsaa $hst
+        ;;
+    rs_syc_ip_imp) #TODO
+        src_i="$1"
+        dst_i="$2"
+        opt="$3"
+        hst="$(cat $ip_manual)"
+        src_root="~/zs"
+        dst_root="/data/ts"
+        src="$hst:$src_prfx/$src_i"
+        dst="$dst_prfx/$dst_i"
+        rs_syc
+        ;;
+    rs_syc_ip_imp_full)
+        # full backup of android 'storage' filesystem to /data
+        src_i="/"
+        dst_i="dr/syc.zs"
+        drsycipf \
+        ;;
+    rs_syc_ip_netfrac)
+        # - sync over LAN with android as master branch
+        src_i=$1
+        dst_i=$2
+        hst="iao@netfrac"
+        src_base="~/zs"
+        dst_base="/data/ts"
+        src="$hst:$src_base/$src_i"
+        dst="$dst_base/$dst_i"
+        rs_syc
+        ;;
 esac
 
-exit
-# TODO- case all the below
+
+# adb usb
 
 case $cmd in
+    rs_syc_adbusb_2sd)
+        # laptop as master branch
+        src_i="$1"
+        dst_i="$2"
+        opt="$3"
+            
+        hst="localhost"
+        src_root="/data/h/iao"
+        dst_root="~/sac"
+            
+        src="$src_root/$src_i/"
+        dst="$hst:$dst_root/$dst_i/"
+        adb_set
+        rs_syc
+        ;;
+    rs_syc_usb_2sd_ls_a)
+        src_ls_file="/home/$USER/.local/bin/drlsaa"
+        opt="$1"
+        ## fc
+        r_for() {
+            src_ls_file="$1"
+            opt="$2"
+            src_ls=$(cat $src_ls_file)
+            
+            for src in $src_ls; do
+              if [ -d $(readlink $src) ]; then
+                 rs_syc_adbusb_2sd "$src_i" "$dst_i" $opt
+              fi
+            done
+        }
+        ## exc
+        r_for $src_ls_file \
+            $opt
+        ## docs
+        #.'if' test above is important for filtering out list items which arent directories 
+        #.. each a typo which leads to the list item being root -
+        #.. rclone then syncs the whole contents of root..
+        #dst_prfx="$3"
+        ;;
+    rs_syc_usb)
+        ## syncing files with android as master branch
+        ## vr
+        src_i="$1/"
+        dst_i="$2/"
+        opt="$3"
+            
+        hst="localhost"
+        src_root="~/zs"
+        dst_root="/data/ts"
+        src="$hst:$src_root/$src_i"
+        dst="$dst_root/$dst_i"
+        adb_set
+        rs_syc $src $dst $opt
+        ;;
+    syc_usb_bkful() {
+        # full backup of android 'storage' filesystem
+        src_i="/"
+        dst_i="dr/syc.zs"
+        opt="$1"
+        rs_syc_usb
+        ;;
+    syc-usb-2trx)
+        src="/data/ts/$1"
+        dst="localhost:~/zs/$2"
+        adb_set
+        rs_syc_cmd
+        ;;
+    mv-usb-2dat)
+        src="~/$1"
+        dst="localhost:/dat/ts/$2" \
+        adb_set
+        rs_mv
+        ;;
+    mv-usb-2trx)
+        hst="localhost"
+        src_prfx="/data"
+        dst_prfx="~/zs"
+        src="$src_prfx/$1"
+        dst="$hst:$dest_prfx/$2"
+        opt="$3"
+        adb_set
+        rs_mv
+        ;;
+esac
 
-
-
-# ================================================
-# SYNCING SCRIPTS ===============================
-# DESCRIPTION:
-#
 # TODO
-# - This section requires much re-structuring
-
-rs_syc() {
-	# sync src to dst
-	src="$1"
-	dst="$2"
-	opt="$3"
-		
-	rsync 
-		-avP $opt \
-		--delete \
-		--exclude=$excl \
-		-e 'ssh -p 8022' \
-		$src \
-		$dst
-}
-
-
-rs_syc_a() {
-	# THiS LOOKS VERY COMPLICATED??
-	src_root="$1/"
-	src_i="$2/"
-	
-	dst_root="$3/"
-	dst_i="$4/"
-	
-	hst="$5"
-	opt="$6"
-
-	src="$src_root$src_i/"
-	dst="$hst:$dst_root$dst_i/"
-
-	rs_syc $opt $src $dst
-}
-
-r_loop() {
-	src_ls_file="$1"
-	hst=$2
-	opt="$3"
-	src_ls=$(cat $src_ls_file)
-		
-	for src in $src_ls; do
-	  if [ -d $(readlink $src) ]; then
-	     drsycip.2sd \
-	    	"$src" \
-	    	"$src" \
-		$hst \
-		$opt \
-		
-	  fi
-	done
-}
-
-rs_syc_ip_2sd() {
-	#!/bin/sh
-	# sync with laptop as master branch
-	src_i="$1"
-	dst_i="$2"
-	hst="$3"
-	opt="$4"
-	src_root="/data/h/iao/"
-	dst_root="~/sac/"
-
-	src="$src_root$src_i/"
-	dst="$hst:$dst_root$dst_i/"
-	rs_syc \
-		$src \
-		$dst \
-		$opt
-}
-
-rs_syc_ip_2sdlsaa() {
-	src_ls_file="/home/$USER/.local/bin/drlsaa"
-	
-	hst="$1"
-	opt="$2"
-	## fc ==============
-	
-	## exc ===========
-	r_loop \
-		$src_ls_file \
-		$hst \
-		$opt
-}
-
-rs_syc_ip_imp_2sdlsaa() {
-	hst=$(cat $ip_file)
-	rs_syc_ip_2sdlsaa $hst
-}
-
-
-rs_syc_ip_imp() {
-	src_i="$1"
-	dst_i="$2"
-	opt="$3"
-		
-	hst="$(cat $ip_file)"
-	src_root="~/zs"
-	dst_root="/data/ts"
-
-	src="$hst:$src_prfx/$src_i"
-	dst="$dst_prfx/$dst_i"
-	rs_syc \
-		$src \
-		$dest \
-		$opt
-
-}
-
-rs_syc_ip_imp_full() {
-	# full backup of android 'storage' filesystem to /data
-	src_i="/"
-	dst_i="dr/syc.zs"
-	drsycipf \
-		$src_i \
-		$dst_i \
-		$opt
-
-}
-
-rs_syc_ip_netfrac() {
-	# DESCRIPTION:
-	#	- sync over LAN with android as master branch
-	## vars ==================
-	src_i=$1
-	dst_i=$2
-
-	hst="iao@netfrac"
-	src_base="~/zs"
-	dst_base="/data/ts"
-		
-	src="$hst:$src_base/$src_i"
-	dst="$dst_base/$dst_i"
-
-	## exec =================
-	rs_syc $src $dst $opt
-}
-
-rs_syc_adbusb_2sd() {
-	# Laptop as master branch
-	## vr =============
-	src_i="$1"
-	dst_i="$2"
-	opt="$3"
-		
-	hst="localhost"
-	src_root="/data/h/iao"
-	dst_root="~/sac"
-		
-	src="$src_root/$src_i/"
-	dst="$hst:$dst_root/$dst_i/"
-	adb_set
-	rs_syc $src $dst $opt
-}
-
-rs_syc_usb_2sd_ls_a() {
-	src_ls_file="/home/$USER/.local/bin/drlsaa"
-	opt="$1"
-	## fc ==============
-	r_for() {
-		src_ls_file="$1"
-		opt="$2"
-		src_ls=$(cat $src_ls_file)
-		
-		for src in $src_ls; do
-		  if [ -d $(readlink $src) ]; then
-		     rs_syc_adbusb_2sd "$src_i" "$dst_i" $opt
-		  fi
-		done
-	}
-	## exc ===========
-	r_for $src_ls_file \
-		$opt
-	## docs =================
-	#.'if' test above is important for filtering out list items which arent directories 
-	#.. each a typo which leads to the list item being root -
-	#.. rclone then syncs the whole contents of root..
-	#dst_prfx="$3"
-}
-
-rs_syc_usb() {
-	## syncing files with android as master branch
-	## vr ===================
-	src_i="$1/"
-	dst_i="$2/"
-	opt="$3"
-		
-	hst="localhost"
-	src_root="~/zs"
-	dst_root="/data/ts"
-	src="$hst:$src_root/$src_i"
-	dst="$dst_root/$dst_i"
-	adb_set
-	rs_syc $src $dst $opt
-}
-
-rs_syc_usb_bkful() {
-	# full backup of android 'storage' filesystem
-	src_i="/"
-	dst_i="dr/syc.zs"
-	opt="$1"
-	rs_syc_usb \
-		$src_i \
-		$dst_i \
-		$opt
-}
-
+# - [x] Move to separate repo
+# - [x] Restructure the file adequately from it's original multifile setup
+# - [ ] MAKE ctags regex to match cases
+# - [ ] TODO: AUTOCOMPLETION FUNCTIONALITY??
+# TODO: write a script to automate the setup of git dirs??
+#mosh.usb)      _adb_set; _mosh iao@localhost ;;
+## no need for mosh over usb?? unless in the case of a flimsy usb connection??
+# for any files to sync from android
+# first move them locally into a logical hiearchy
+# ~/0z/ ..:
+# OpenNoteScanner/
+# scn/
+# on laptop
+# /dat/xs/trx/scnii/
+# localhost:~/0z/scn/ \
 
