@@ -1,6 +1,0 @@
-#!/bin/env bash
-
-adb shell settings put secure icon_blacklist hotspot,mobile,battery
-#adb shell settings put secure icon_blacklist hotspot,mobile,battery,clock
-#adb shell content insert --uri content://settings/system --bind name:s:status_bar_show_battery_percent --bind value:i:1
-
