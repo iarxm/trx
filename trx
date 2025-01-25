@@ -23,6 +23,7 @@ trx_cfg_dir="${XDG_CONFIG_HOME}/trx"
 ssh_cfg_dir="${HOME}/.ssh"
 
 host_i=$(cat "${ssh_cfg_dir}/host-i")
+ipi="${host_i}"
 
 ip_gitshare="${trx_git_dir}/host-${host_i}-ip-wlan"
 ip_manual="${ssh_cfg_dir}/host-${host_i}-ip-wlan"
@@ -30,10 +31,7 @@ ipi_mac="${ssh_cfg_dir}/host-${host_i}-ip-mac"
 
 ipy="$(cat ${ip_gitshare} 2>/dev/null)"
 ipx="$(cat ${ip_manual} 2>/dev/null)"
-ipi="${ipx}"
 ipm="$(cat ${ipi_mac} 2>/dev/null)"
-
-#ip_nmap_ls="${ip_neutron_manual}_ls"
 
 
 # termux vars
@@ -51,19 +49,24 @@ sshfs_dst="$ipi:~/"
 
 # funcs
 
-_sshfs_cmd() {
-    sshfs $sshfs_dst $sshfs_mnt -p 8022 -o follow_symlinks -oStrictHostKeyChecking=no -C $@
-}
-
 adb_set() {
     # 2nd call sets up http server on termux
     adb forward tcp:8022 tcp:8022
     adb forward tcp:8080 tcp:8080
 }
 
-_ssh()       { ssh -p 8022 $2 -i ~/.ssh/id_rsa "${ipi}" $@; }
+_sshfs_cmd() {
+    sshfs $sshfs_dst $sshfs_mnt \
+        -o follow_symlinks \
+        -oStrictHostKeyChecking=no -C $@
+}
+
+_ssh()       { ssh "${ipi}" $@; }
 
 _mosh()      { mosh --ssh="ssh -p 8022 -i ~/.ssh/id_rsa" "${ipi}" $@; }
+
+
+# domain resolution
 
 _ip_resolv() {
     ipi="$(ip route show default | awk '{print $3}')"
@@ -97,11 +100,9 @@ _ip_ssh_push() {
     #rsync -avP ..
 }
 
-# nmap scan local hotspot for ip address
-# - selects first one in list and saves it as the useable ip
-# - android often assings device ip as ..244
-# - the android device is usually below this - as the first one in the list
+
 _ip_find() {
+
     nmap -n \
         -sn 192.168.64.0/24 \
         -oG - \
@@ -128,6 +129,9 @@ _sshd_pass_switch() {
         "PasswordAuthentication $1 " \
         "Subsystem sftp /data/data/com.termux/files/usr/libexec/sftp-server" > $cfg_sshd
 }
+
+
+# system backup
 
 exp_firefox() {
     dir_dat_moz="/data/data/org.mozilla.firefox/files/mozilla"
@@ -223,12 +227,10 @@ bootstrap_install() {
 
 bootstrap_configure() {
     # configure home
-    
     chsh -s zsh
     termux-setup-storage
     # lng termux
     # other
-    
 }
 
 bootstrap() {
@@ -243,6 +245,14 @@ bootstrap() {
     bootstrap_clone
     bootstrap_install
     bootstrap_configure
+}
+## testing
+#bootstrap_ini
+
+adb_cfg_neutron() {
+    adb shell settings put secure icon_blacklist hotspot,mobile,battery
+        #adb shell settings put secure icon_blacklist hotspot,mobile,battery,clock
+        #adb shell content insert --uri content://settings/system --bind name:s:status_bar_show_battery_percent --bind value:i:1
 }
 
 
@@ -262,102 +272,86 @@ case $cmd in
     ip-git-push)            _ip_git_push ;;
     ip-ssh-push)            _ip_ssh_push ;;
     ip-find-nmap)           _ip_find ;;
-    #ip-set|ip-set-gitshare) echo "$1" > $ip_gitshare ;;
-    #ip-set-a)              echo "192.168.$1" > $ip_manual ;;
+    ssh-neutron)          ipi="x@neutron"; _ssh ;;
   # ssh
     ssh|ssh-termux)       _ssh ;;
-    ssh-neutron)          ipi="x@neutron"; _ssh ;;
     ssh-usb)              adb_set; ipi="localhost"; _ssh ;;
     ssh-copyid)           ssh-copy-id -p 8022 "${ipi}" ;;
-  # mosh
     mosh|mosh-termux)     _mosh tmux ;;
     mosh-i)               _mosh tmux ;;
-    mosh-x)               ipi="x@neutron"; _mosh tmux ;;
 # sshfs
-    sshfs|sshfs-termux)   _sshfs_cmd "${ipy}:~/"         $sshfs_mnt $@ ;;
-    sshfs-manual)         _sshfs_cmd "${ipx}:~/"         $sshfs_mnt $@ ;;
-    sshfs-x)              _sshfs_cmd "x@neutron:$emu_r" $sshfs_mnt $@ ;;
-    sshfs-adb)            adb_set;  _sshfs_cmd "localhost:$emu_r" $sshfs_mnt $@ ;;
+    sshfs|sshfs-termux)   _sshfs_cmd $@ ;;
+    sshfs-neutron-emu)    sshfs_dst=""x@neutron:$emu_r"; _sshfs_cmd $@ ;;
+    sshfs-adb)            adb_set; sshfs_dst="localhost:~"; _sshfs_cmd $@ ;;
+# boot and config
+    adb-neutron-settings) adb_cfg_neutron;;
+    bootstrap)            bootstrap ;;
 # syc & mv
+# TODO: just use rclone with pre-configured destinations and sources?
+# - would work well with the self-containment of ssh links approach
+# syc 2 trx
     syc-2t)
+        exit #TODO
         src="/dat/$1"
         dst="$ipi:~/0s/$2/"
         rs-syc-cmd ;;
-    syc-2t-ls-a) #TODO
+    syc-2t-ls-a)
+        exit #TODO
         src_ls_file="${trx-dir}/syc-list-aa"
         dst="$ipi:$(cat ${trx-dir}/syc-list-aa-dst)"
         rs-syc-lp ;;
-    syc-2tx-ls-a) #TODO
+    syc-2tx-ls-a)
+        exit #TODO
         rs-syc-lp ;;
-    syc-2l) #TODO
-        src_i="$1"
-        dst_i="$2"
-        opt="$3"
-        src_root="~/zs"
-        dst_root="/data/ts"
-        src="$ipi:$src_prfx/$src_i"
-        dst="/dat/xs/$2"
+# syc 2 linux
+    syc-2l)
+        exit #TODO
+        src="$ipi:~/zs/$1"
+        dst="/dat/xs/trx-syc/$2"
         rs-syc
         ;;
     syc-2l-imp-full)
-        # full backup of android 'storage' filesystem to /data
-        src_i="/"
-        dst_i="dr/syc.zs"
-        drsycipf \
+        exit #TODO # full backup of android 'storage' filesystem to /data
+        src="/"
+        dst="dr/syc.zs"
+        rs-syc
         ;;
     syc-2l-neutron)
-        src_i=$1
-        dst_i=$2
-        ipi="x@neutron"
-        src_base="~/zs"
-        dst_base="/data/ts"
-        src="$hst:$src_base/$src_i"
-        dst="$dst_base/$dst_i"
+        exit #TODO
+        ipi="neutron"
+        src="$ipi:~/zs/$1"
+        dst="/dat/xs/trx-syc/$2"
         rs-syc
         ;;
 # adb usb
-    rs-syc-adbusb-2sd)
-        # laptop as master branch
-        src_i="$1"
-        dst_i="$2"
-        opt="$3"
-            
-        hst="localhost"
-        src_root="/data/h/iao"
-        dst_root="~/sac"
-            
-        src="$src_root/$src_i/"
-        dst="$hst:$dst_root/$dst_i/"
+    syc-2t-adb)
+        exit #TODO
+        src="/dat/$1/"
+        dst="localhost:~/sac/$2/"
         adb_set
         rs-syc
         ;;
-    rs-syc-usb-2sd-ls-a)
+    syc-2t-adb-ls-a)
+        exit #TODO
         src_ls_file="/home/$USER/.local/bin/drlsaa"
         opt="$1"
         r_for $src_ls_file \
             $opt
         ## docs
-        #.'if' test above is important for filtering out list items which arent directories 
-        #.. each a typo which leads to the list item being root -
-        #.. rclone then syncs the whole contents of root..
-        #dst_prfx="$3"
+        # 'if' test above is important for filtering out list items which arent directories 
+        # each a typo which leads to the list item being root -
+        # rclone then syncs the whole contents of root..
+        # dst_prfx="$3"
         ;;
-    syc-usb)
-        ## syncing files with android as master branch
-        ## vr
-        src_i="$1/"
-        dst_i="$2/"
-        opt="$3"
-            
-        hst="localhost"
-        src_root="~/zs"
-        dst_root="/data/ts"
-        src="$hst:$src_root/$src_i"
-        dst="$dst_root/$dst_i"
+    syc-2l-adb)
+        exit #TODO
+        src="localhost:~/zs/$1"
+        dst="/dat/xs/$2"
         adb_set
         rs-syc $src $dst $opt
         ;;
     syc-usb_bkful)
+        exit #TODO
         # full backup of android 'storage' filesystem
         src_i="/"
         dst_i="dr/syc.zs"
@@ -365,38 +359,38 @@ case $cmd in
         rs-syc-cmd
         ;;
     syc-usb-2trx)
+        exit #TODO
         src="/data/ts/$1"
         dst="localhost:~/zs/$2"
         adb_set
         rs-syc-cmd
         ;;
     mv-usb-2dat)
+        exit #TODO
         src="~/$1"
         dst="localhost:/dat/ts/$2"
         adb_set
         rs-mv
         ;;
     mv-usb-2trx)
-        hst="localhost"
-        src_prfx="/data"
-        dst_prfx="~/zs"
-        src="$src_prfx/$1"
-        dst="$hst:$dest_prfx/$2"
+        exit #TODO
+        src="/dat/$1"
+        dst="localhost:~/zs/$2"
         adb_set
         rs-mv
         ;;
-# adb settings push
-    adb-neutron-settings)
-        adb shell settings put secure icon_blacklist hotspot,mobile,battery
-        #adb shell settings put secure icon_blacklist hotspot,mobile,battery,clock
-        #adb shell content insert --uri content://settings/system --bind name:s:status_bar_show_battery_percent --bind value:i:1
-        ;;
-    bootstrap)
-        bootstrap
-        ;;
 esac
+
+# nmap approach
+# nmap scan local hotspot for ip address
+# - selects first one in list and saves it as the useable ip
+# - android often assings device ip as ..244
+# - the android device is usually below this - as the first one in the list
 
 #ip_neutron_gitshare="${trx_git_dir}/host-neutron-ip-wlan"
 #ip_neutron_manual="${ssh_cfg_dir}/host-neutron-ip-wlan"
 #ip_neutron_macadr="${ssh_cfg_dir}/host-neutron-ip-mac"
+    #ip-set|ip-set-gitshare) echo "$1" > $ip_gitshare ;;
+    #ip-set-a)              echo "192.168.$1" > $ip_manual ;;
+#ip_nmap_ls="${ip_neutron_manual}_ls"
 
