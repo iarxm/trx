@@ -18,35 +18,41 @@ cmd=$1 && shift 1
 
 ## vars
 
-termux_gitshare_dir="$HOME/.local/share/aax/trx"
-trx_dir="${XDG_CONFIG_HOME}/trx"
-ip_termux="$termux_gitshare_dir/termux-ip-wlan"
-ip_manual="$XDG_CACHE_HOME/termux-ip-manual"
-ipx="$(cat $ip_manual 2>/dev/null)"
-ipy="$(cat $ip_termux 2>/dev/null)"
+trx_git_dir="$HOME/.local/share/aax/trx"
+trx_cfg_dir="${XDG_CONFIG_HOME}/trx"
+ssh_cfg_dir="${HOME}/.ssh"
+
+host_i=$(cat "${ssh_cfg_dir}/host-i")
+
+ip_gitshare="${trx_git_dir}/host-${host_i}-ip-wlan"
+ip_manual="${ssh_cfg_dir}/host-${host_i}-ip-wlan"
+ipi_mac="${ssh_cfg_dir}/host-${host_i}-ip-mac"
+
+ipy="$(cat ${ip_gitshare} 2>/dev/null)"
+ipx="$(cat ${ip_manual} 2>/dev/null)"
 ipi="${ipx}"
-ip_ls="${ip_manual}_ls"
+ipm="$(cat ${ipi_mac} 2>/dev/null)"
+
+#ip_nmap_ls="${ip_neutron_manual}_ls"
 
 
 # termux vars
 
 trx_r="/data/data/com.termux/files"
-trx_h="$trx_r/home"
-cfg_f="$trx_r/usr/etc/ssh/sshd_config"
-dr_r="/storage/emulated/0/0/"
+trx_h="/data/data/com.termux/files/home"
+emu_r="/storage/emulated/0/0/"
+cfg_sshd="$trx_r/usr/etc/ssh/sshd_config"
 
-adr="$ipx:$dr_r"
+adr="$ipx:$emu_r"
 sshfs_mnt="$HOME/.local/share/aaa/mnt/termux-a"
 sshfs_mnb="$HOME/.local/share/aaa/mnt/termux-b"
+sshfs_dst="$ipi:~/"
 
 
 # funcs
 
 _sshfs_cmd() {
-    adr=$1
-    mnt=$2
-    shift 2
-    sshfs $adr $mnt -p 8022 -o follow_symlinks -oStrictHostKeyChecking=no -C $@
+    sshfs $sshfs_dst $sshfs_mnt -p 8022 -o follow_symlinks -oStrictHostKeyChecking=no -C $@
 }
 
 adb_set() {
@@ -59,10 +65,36 @@ _ssh()       { ssh -p 8022 $2 -i ~/.ssh/id_rsa "${ipi}" $@; }
 
 _mosh()      { mosh --ssh="ssh -p 8022 -i ~/.ssh/id_rsa" "${ipi}" $@; }
 
-_ip_pull()   {
-    cd $termux_gitshare_dir
-    git pull
-    cat $ip_termux > $ip_manual 2>/dev/null
+_ip_resolv() {
+    ipi="$(ip route show default | awk '{print $3}')"
+    [ ! -n "$(ip neighbour show ${ipi} | grep ${ipm})" ] \
+        && { echo "no match with recorded mac address"; exit; }
+    echo "${ipi}" > "${ip_manual}"
+}
+
+_ip_git_pull()   {
+    git -C ${trx_git_dir} pull
+    cat ${ip_gitshare} > ${ip_manual} 2>/dev/null
+}
+
+_ip_git_push() {
+    ip=$(ifconfig | grep -Eo 'inet (192\.168\.)[0-9]*\.[0-9]*' | sed -E 's/inet //g')
+    [ ! -n $ip ] && \
+        ip=$(ifconfig | grep -Eo 'inet (10\.137\.)[0-9]*\.[0-9]*' | sed -E 's/inet //g')
+
+    printf "wlan ip: $ip ---> $ip_gitshare \n"
+    printf "%s" "$ip" > $ip_gitshare
+    
+    git -C "$trx_git_dir" \
+        commit $ip_gitshare -m "updating wlan ip file for trx"
+    git -C "$trx_git_dir" \
+        push
+}
+
+_ip_ssh_push() {
+    # TASK: use ssh to push it directly to linux from termux.
+    echo ""
+    #rsync -avP ..
 }
 
 # nmap scan local hotspot for ip address
@@ -74,8 +106,8 @@ _ip_find() {
         -sn 192.168.64.0/24 \
         -oG - \
         | awk '/Up$/{print $2}' \
-        | head -n 1 $ip_ls - > $ip_manual
-    #> $ip_ls
+        | head -n 1 $ip_nmap_ls - > $ip_manual
+    #> $ip_nmap_ls
 }
 
 _ip_find_10() {
@@ -83,44 +115,26 @@ _ip_find_10() {
         -sn 10.137.70.0/24 \
         -oG - \
         | awk '/Up$/{print $2}' \
-        | tail -n 1 $ip_ls - > $ip_manual
-    #> $ip_ls
+        | tail -n 1 $ip_nmap_ls - > $ip_manual
+    #> $ip_nmap_ls
 }
 
-_ip_push() {
-    # - ip bridging between linux and termux
-    # - push ip address to remote repo
-    # TASK: use ssh to push it directly to linux from termux.
 
-    ip_dir="$HOME/.local/share/aax/trx"
-    ip_file="ip.dr.wlan"
-    ip_file_all="ip.dr.all"
-    ip_path="$ip_dir/$ip_file"
 
-    cd "$ip_dir" 
-
-    ip=$(ifconfig | grep -Eo 'inet (192\.168\.)[0-9]*\.[0-9]*' | sed -E 's/inet //g')
-    [ ! -n $ip ] && \
-        ip=$(ifconfig | grep -Eo 'inet (10\.137\.)[0-9]*\.[0-9]*' | sed -E 's/inet //g')
-
-    printf "%s \n" "wlan ip: $ip"
-    printf "%s" "$ip" > $ip_file
-    printf "$ip ---> $ip_file \n"
-
-    git commit $ip_file -m "updating wlan ip file for trx"
-    git push
-}
+# configure
 
 _sshd_pass_switch() {
     printf "%s \n" "PrintMotd yes" \
         "PasswordAuthentication $1 " \
-        "Subsystem sftp /data/data/com.termux/files/usr/libexec/sftp-server" > $cfg_f
+        "Subsystem sftp /data/data/com.termux/files/usr/libexec/sftp-server" > $cfg_sshd
 }
 
 exp_firefox() {
     dir_dat_moz="/data/data/org.mozilla.firefox/files/mozilla"
-    sqlite3 $dir_dat_moz/*.default/browser.db "SELECT url FROM tabs ORDER BY position" > /sdcard/0/d/tabs
-    cp $dir_dat_moz//*.default/ /sdcard/0s/firef.bkp
+    exp_dst="/sdcard/0/d/tabs"
+    exp_dst_cp="/sdcard/0s/firefox-backup"
+    sqlite3 ${dir_dat_moz}/*.default/browser.db "SELECT url FROM tabs ORDER BY position" > ${exp_dst}
+    cp ${dir_dat_moz}//*.default/ ${exp_dst_cp}
 }
 
 
@@ -200,9 +214,9 @@ bootstrap_clone() {
 bootstrap_install() {
     # pkg setup
     apt-get update # update package lists
-    cat $trx_dir/pkgs-pkg.txt | xargs pkg install
-    #cat $trx_dir/pkgs-apt.txt | xargs apt-get install -y
-    #cat $trx_dir/pkgs-pip.txt | xargs pip install -y
+    cat $trx_cfg_dir/pkgs-pkg.txt | xargs pkg install
+    #cat $trx_cfg_dir/pkgs-apt.txt | xargs apt-get install -y
+    #cat $trx_cfg_dir/pkgs-pip.txt | xargs pip install -y
     # Command which filters out matching patterns..?
     nvim -c 'PlugInstall'
 }
@@ -230,27 +244,30 @@ bootstrap() {
     bootstrap_install
     bootstrap_configure
 }
- 
+
 
 case $cmd in
 # termux
-    pkg_ls) ;;            # GENERATE PACKAGE LISTS todo
+    pkg_ls) ;;            # TODO: generate package lists
     sshd_p_on)            _sshd_pass_switch "yes" ;;
     sshd_p_off)           _sshd_pass_switch "no" ;;
     exp_firefox)          exp_firefox ;;
 # linux connect
   # ip
-    ip-pull)              _ip_pull ;;
-    #ip-set-a)            echo "192.168.$1" > $ip_manual ;;
-    ip-set-manual)        echo "$1" > $ip_manual ;;
-    ip-set|ip-set-termux) echo "$1" > $ip_termux ;;
-    ip-echo)              echo "${ipx}" ;;
-    ip-echo-termux)       echo "${ipy}" ;;
-    ip-find)              _ip_find ;;
+    ip-echo|echo)           echo "${ipi}" ;;
+    ip-echo-git)            echo "${ipy}" ;;
+    ip-set-manual)          echo "$1" > $ip_manual ;;
+    ip|ip-resolv)           _ip_resolv ;;
+    ip-git-pull)            _ip_git_pull ;;
+    ip-git-push)            _ip_git_push ;;
+    ip-ssh-push)            _ip_ssh_push ;;
+    ip-find-nmap)           _ip_find ;;
+    #ip-set|ip-set-gitshare) echo "$1" > $ip_gitshare ;;
+    #ip-set-a)              echo "192.168.$1" > $ip_manual ;;
   # ssh
     ssh|ssh-termux)       _ssh ;;
-    ssh-x)                ipi="x@neutron"; _ssh ;;
-    ssh-usb)              adb_set; ssh -p 8022 localhost ;;
+    ssh-neutron)          ipi="x@neutron"; _ssh ;;
+    ssh-usb)              adb_set; ipi="localhost"; _ssh ;;
     ssh-copyid)           ssh-copy-id -p 8022 "${ipi}" ;;
   # mosh
     mosh|mosh-termux)     _mosh tmux ;;
@@ -259,8 +276,8 @@ case $cmd in
 # sshfs
     sshfs|sshfs-termux)   _sshfs_cmd "${ipy}:~/"         $sshfs_mnt $@ ;;
     sshfs-manual)         _sshfs_cmd "${ipx}:~/"         $sshfs_mnt $@ ;;
-    sshfs-x)              _sshfs_cmd "x@neutron:$dr_r" $sshfs_mnt $@ ;;
-    sshfs-adb)            adb_set;  _sshfs_cmd "localhost:$dr_r" $sshfs_mnt $@ ;;
+    sshfs-x)              _sshfs_cmd "x@neutron:$emu_r" $sshfs_mnt $@ ;;
+    sshfs-adb)            adb_set;  _sshfs_cmd "localhost:$emu_r" $sshfs_mnt $@ ;;
 # syc & mv
     syc-2t)
         src="/dat/$1"
@@ -378,4 +395,8 @@ case $cmd in
         bootstrap
         ;;
 esac
+
+#ip_neutron_gitshare="${trx_git_dir}/host-neutron-ip-wlan"
+#ip_neutron_manual="${ssh_cfg_dir}/host-neutron-ip-wlan"
+#ip_neutron_macadr="${ssh_cfg_dir}/host-neutron-ip-mac"
 
