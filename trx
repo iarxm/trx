@@ -235,11 +235,11 @@ bootstrap_gh() {
 }
 
 bootstrap_clone() {
-    git clone git@github.com:iarxm/dot.git   .xx/cfg
-    git clone git@github.com:iarxm/dotx.git  .xx/cfgx
-    git clone git@github.com:iarxm/sh.git    .xx/bin
-    git clone git@github.com:iarxm/dd.git     dd
-    git clone git@github.com:iarxm/uboot.git .local/pkg/uboot
+    git clone git@github.com:iarxm/dot.git   ~/.xx/cfg
+    git clone git@github.com:iarxm/dotx.git  ~/.xx/cfgx
+    git clone git@github.com:iarxm/sh.git    ~/.xx/bin
+    git clone git@github.com:iarxm/dd.git    ~/dd
+    git clone git@github.com:iarxm/uboot.git ~/.local/pkg/uboot
     # how can i package up my personal programs from distinct git projects?
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.local/pkg/powerlevel10k
 }
