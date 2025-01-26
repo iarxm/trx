@@ -7,8 +7,8 @@ all:
 
 install:
 	install -d $(BINDIR)
-	install -m 755 trx $(BINDIR)
+	install -m 755 trx trx-ip trx-boot $(BINDIR)
 
 install-termux:
-	install -m 755 trx $(TERMUX_BIN)
+	install -m 755 trx trx-ip trx-boot $(TERMUX_BIN)
 

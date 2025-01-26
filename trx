@@ -1,40 +1,25 @@
 #!/bin/bash
 
 # IAROM MADDEN mail@iarom.org
-#
-# linux - termux macros
-#
-# - mosh-imp
-# - sshfs-imp
-# - ip-pull && trx mosh.imp
-# - ip-pull && trx sshfs.imp
-# a) trx mosh.imp ;;
-# b) trx sshfs.imp ;;
 
 cmd=$1 && shift 1
 
 trx_git_dir="${HOME}/.local/share/aax/trx"
 ssh_cfg_dir="${HOME}/.ssh"
-
 ipi=$(cat "${ssh_cfg_dir}/host-i" 2>/dev/null)
-
 ip_git="${trx_git_dir}/host-${ipi}-ip-wlan" # ip shared via git
 ip_man="${ssh_cfg_dir}/host-${ipi}-ip-wlan"
 ip_mac="${ssh_cfg_dir}/host-${ipi}-ip-mac" # gateway interface mac address
-ipy="$(cat ${ip_git} 2>/dev/null)"
-ipx="$(cat ${ip_man} 2>/dev/null)"
-ipm="$(cat ${ip_mac} 2>/dev/null)"
-
+#ipy="$(cat ${ip_git} 2>/dev/null)"
+#ipx="$(cat ${ip_man} 2>/dev/null)"
+#ipm="$(cat ${ip_mac} 2>/dev/null)"
+#adr="$ipi:$emu_r"
 trx_h="/data/data/com.termux/files/home"
 emu_r="/storage/emulated/0/0/"
-
-adr="$ipx:$emu_r"
-sshfs_mnt="$HOME/.local/share/aaa/mnt/termux-a"
-sshfs_mnb="$HOME/.local/share/aaa/mnt/termux-b"
-sshfs_dst="$ipi:~/"
-
+trx-dir="${HOME}/.config/zu.ctrl/linux-termux"
 ls_x="${trx-dir}/syc-list-aa"
 ls_y="/home/$USER/.local/bin/drlsaa"
+dst_x="$(cat ${trx-dir}/syc-list-aa-dst)"
 
 #source ${TRX_CFG}
 
@@ -54,18 +39,6 @@ bkp_exp_ff() {
 }
 
 
-# sshfs
-
-sshfs_c() {
-    sshfs $sshfs_dst $sshfs_mnt \
-        -o follow_symlinks \
-        -oStrictHostKeyChecking=no -C \
-        $@
-}
-
-sshfs_x() { sshfs ${1} ${sshfs_mnt} ;}
-
-
 # rsync
 
 rs-mv() {
@@ -75,8 +48,6 @@ rs-mv() {
         -e 'ssh -p 8022' \
         $src $dst
 }
-
-#rs-mv-x() { }
 
 rs-syc-c() {
     rsync -avP $opt \
@@ -96,63 +67,30 @@ rs-syc-lp() {
     done
 }
 
+#rs-mv-x() { }
+
 rs-syc-lpx() { src_ls_file="${1}"; dst="${2}"; rs-syc-lp; }
 
-rs-syc-x() { src="${1}"; dst="${2}"; rs-syc-c; }
-
-r_for() {
-    src_ls_file="$1"
-    opt="$2"
-    src_ls=$(cat $src_ls_file)
-    
-    for src in $src_ls; do
-        if [ -d $(readlink $src) ]; then
-            rs-syc-adbusb_2sd "$src_i" "$dst_i" $opt
-        fi
-    done
-}
+rs-syc-x()   { src="${1}"; dst="${2}"; rs-syc-c; }
 
 case $cmd in
-    pkg_ls)                ;; # TODO: generate package lists
-    bkp_exp_ff)           bkp_exp_ff ;;
-    bkp_trx)              bkp_trx ;;
-# sshfs
-    sshfs|sshfs-termux)   sshfs_c $@ ;;
-    sshfs-neutron-emu)    sshfs_x n:~/ $@ ;;
-    sshfs-adb)            sshfs_x localhost:~/ $@ ;;
-# 2 trx
+    bkp_pkg_ls)        ;; # TODO: generate package lists
+    bkp_exp_ff)       bkp_exp_ff ;;
+    bkp_trx)          bkp_trx ;;
+
     syc-2t)           rs-syc-x   "/dat/$1" "$ipi:~/zz/$2/" ;;
-    syc-2t-ls-a)      rs-syc-lpx "${ls_x}" "$ipi:$(cat ${trx-dir}/syc-list-aa-dst)" ;;
-    syc-2t-ls-y)      rs-syc-lpx ${ls_y} ;;
-    #syc-2t-ls)        rs-syc-lp ;;
-# 2 linux
-    mv-2l)            rs-mv-x "localhost:~/zs/$2" "/dat/$1" ;;
-    syc-2l)
-        exit #TODO
-        src="$ipi:~/zs/$1"
-        dst="/dat/xs/trx-syc/$2"
-        rs-syc
-        ;;
-    syc-bkp-fulx) rs-syc-c ${ipi}:~/zr/ "/dat/xs/trx-syc/$2" ;;
-    syc-bkp-ful)
-        rs-syc-c ${ipi}:~/zz/ /dat/xs/...
-        rs-syc-c ${ipi}:~/zz/ /dat/xs/...
-        ;;
+    syc-2t-ls-a)      rs-syc-lpx "${ls_x}" "$ipi:${dst_x}" ;;
+    syc-2t-ls-y)      rs-syc-lpx "${ls_y}" ;;
+    mv-2l)            rs-mv-x    "localhost:~/zs/$2" "/dat/$1" ;;
+    syc-2l)           rs-syc-x   "${ipi}:~/zz/$1"    "/dat/xs/trx-syc/$2" ;;
+    syc-bkp-fulx)     rs-syc-c   "${ipi}:~/zr/"      "/dat/xs/trx-syc/zr/" ;;
+    syc-bkp-fuly)
+                      rs-syc-c   ${ipi}:~/zz/   /dat/xs/...
+                      rs-syc-c   ${ipi}:~/zz/ /dat/xs/...
+    ;;
 esac
+
+
 # - [ ] use rlone with pre-configured destinations and sources?
 #      - would work well with the self-containment of ssh links approach
-# - [x] auto install package list
-# - [x] Add prompts to confirm actions.. Or to begin ?
-# - [x] Perhaps a set of initial prompts to trigger each section on or off..
-#trx_cfg_dir="${XDG_CONFIG_HOME}/zu.ctrl/linux-termux"
-#trx_r="/data/data/com.termux/files"
-#_ssh()       { ssh "${ipi}" $@; }
-#_mosh()      { mosh --ssh="ssh -p 8022 -i ~/.ssh/id_rsa" "${ipi}" $@; }
-  # ssh
-    #ssh|ssh-termux)       _ssh ;;
-    #ssh-neutron)          ipi="x@neutron"; _ssh ;;
-    #ssh-adb)              ipi="localhost"; _ssh ;; # first run trx ip-adb
-    #mosh|mosh-termux)     _mosh tmux ;;
-    #mosh-i)               _mosh tmux ;;
 
-    #syc-2t-adb)       rs-syc-x  "/dat/$1/" "localhost:~/sac/$2/" ;;
