@@ -1,0 +1,82 @@
+#!/bin/env bash
+
+# IAROM MADDEN mail@iarom.org
+#
+#TODO: consider setting up a dns hook upon networkmanager event for connecting 
+#to the hotspot, to resolve the gateway ip with a hostname and inject it
+#reduces complexity of current ssh proxycommand method and external script 
+
+
+# funcs
+
+adb_set() {
+    # 2nd call sets up http server on termux
+    # ssh on localhost auto connects to 8080?
+    adb forward tcp:8022 tcp:8022
+    adb forward tcp:8080 tcp:8080
+}
+
+# domain resolution
+
+ip_resolv() {
+    ipi="$(ip route show default | awk '{print $3}')"
+    [ ! -n "$(ip neighbour show ${ipi} | grep ${ipm})" ] \
+        && { echo "no match with recorded mac address"; exit; }
+    echo "${ipi}" > "${ip_manual}"
+}
+
+ip_git_pull()   {
+    git -C ${trx_git_dir} pull
+    cat ${ip_gitshare} > ${ip_manual} 2>/dev/null
+}
+
+ip_git_push() {
+    ip=$(ifconfig | grep -Eo 'inet (192\.168\.)[0-9]*\.[0-9]*' | sed -E 's/inet //g')
+    [ ! -n $ip ] && \
+        ip=$(ifconfig | grep -Eo 'inet (10\.137\.)[0-9]*\.[0-9]*' | sed -E 's/inet //g')
+
+    printf "wlan ip: $ip ---> $ip_gitshare \n"
+    printf "%s" "$ip" > $ip_gitshare
+    
+    git -C "$trx_git_dir" commit $ip_gitshare -m "wlan update"
+    git -C "$trx_git_dir" push
+}
+
+ip_ssh_push() {
+    # TASK: use ssh to push it directly to linux from termux.
+    echo ""
+    #rsync -avP ..
+}
+
+ip_find() {
+    nmap -n \
+        -sn 192.168.64.0/24 \
+        -oG - \
+        | awk '/Up$/{print $2}' \
+        | head -n 1 $ip_nmap_ls - > $ip_manual
+    #> $ip_nmap_ls
+}
+
+ip_find_10() {
+    nmap -n \
+        -sn 10.137.70.0/24 \
+        -oG - \
+        | awk '/Up$/{print $2}' \
+        | tail -n 1 $ip_nmap_ls - > $ip_manual
+    #> $ip_nmap_ls
+}
+
+case $cmd in
+  # ip
+    ip-echo|echo)         echo "${ipi}" ;;
+    ip-echo-git)          echo "${ipy}" ;;
+    ip-set-manual)        echo "$1" > $ip_manual ;;
+    ip|ip-resolv)         ip_resolv ;;
+    ip-git-pull)          ip_git_pull ;;
+    ip-git-push)          ip_git_push ;;
+    ip-ssh-push)          ip_ssh_push ;;
+    ip-find-nmap)         ip_find ;;
+    adb|ip-adb)           adb_set ;;
+
+esac
+

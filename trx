@@ -4,145 +4,48 @@
 #
 # linux - termux macros
 #
-# most used handles
-# - mosh.imp
-# - sshfs.imp
-# - ip.pull && trx mosh.imp
-# - ip.pull && trx sshfs.imp
-#
-# shortcuts
-#   a)              trx mosh.imp ;;
-#   b)              trx sshfs.imp ;;
-
-#TODO: consider setting up a dns hook upon networkmanager event for connecting 
-#to the hotspot, to resolve the gateway ip with a hostname and inject it
-#reduces complexity of current ssh proxycommand method and external script 
+# - mosh-imp
+# - sshfs-imp
+# - ip-pull && trx mosh.imp
+# - ip-pull && trx sshfs.imp
+# a) trx mosh.imp ;;
+# b) trx sshfs.imp ;;
 
 cmd=$1 && shift 1
 
-## vars
-
-trx_git_dir="$HOME/.local/share/aax/trx"
-trx_cfg_dir="${XDG_CONFIG_HOME}/zu.ctrl/linux-termux"
+trx_git_dir="${HOME}/.local/share/aax/trx"
 ssh_cfg_dir="${HOME}/.ssh"
 
-host_i=$(cat "${ssh_cfg_dir}/host-i" 2>/dev/null)
-ipi="${host_i}"
+ipi=$(cat "${ssh_cfg_dir}/host-i" 2>/dev/null)
 
-ip_gitshare="${trx_git_dir}/host-${host_i}-ip-wlan"
-ip_manual="${ssh_cfg_dir}/host-${host_i}-ip-wlan"
-ipi_mac="${ssh_cfg_dir}/host-${host_i}-ip-mac"
+ip_git="${trx_git_dir}/host-${ipi}-ip-wlan" # ip shared via git
+ip_man="${ssh_cfg_dir}/host-${ipi}-ip-wlan"
+ip_mac="${ssh_cfg_dir}/host-${ipi}-ip-mac" # gateway interface mac address
+ipy="$(cat ${ip_git} 2>/dev/null)"
+ipx="$(cat ${ip_man} 2>/dev/null)"
+ipm="$(cat ${ip_mac} 2>/dev/null)"
 
-ipy="$(cat ${ip_gitshare} 2>/dev/null)"
-ipx="$(cat ${ip_manual} 2>/dev/null)"
-ipm="$(cat ${ipi_mac} 2>/dev/null)"
-
-
-# termux vars
-
-trx_r="/data/data/com.termux/files"
 trx_h="/data/data/com.termux/files/home"
 emu_r="/storage/emulated/0/0/"
-cfg_sshd="$trx_r/usr/etc/ssh/sshd_config"
 
 adr="$ipx:$emu_r"
 sshfs_mnt="$HOME/.local/share/aaa/mnt/termux-a"
 sshfs_mnb="$HOME/.local/share/aaa/mnt/termux-b"
 sshfs_dst="$ipi:~/"
 
+ls_x="${trx-dir}/syc-list-aa"
+ls_y="/home/$USER/.local/bin/drlsaa"
 
-# funcs
-
-adb_set() {
-    # 2nd call sets up http server on termux
-    adb forward tcp:8022 tcp:8022
-    adb forward tcp:8080 tcp:8080
-}
-
-_sshfs_cmd() {
-    sshfs $sshfs_dst $sshfs_mnt \
-        -o follow_symlinks \
-        -oStrictHostKeyChecking=no -C $@
-}
-
-_ssh()       { ssh "${ipi}" $@; }
-
-_mosh()      { mosh --ssh="ssh -p 8022 -i ~/.ssh/id_rsa" "${ipi}" $@; }
-
-
-# domain resolution
-
-_ip_resolv() {
-    ipi="$(ip route show default | awk '{print $3}')"
-    [ ! -n "$(ip neighbour show ${ipi} | grep ${ipm})" ] \
-        && { echo "no match with recorded mac address"; exit; }
-    echo "${ipi}" > "${ip_manual}"
-}
-
-_ip_git_pull()   {
-    git -C ${trx_git_dir} pull
-    cat ${ip_gitshare} > ${ip_manual} 2>/dev/null
-}
-
-_ip_git_push() {
-    ip=$(ifconfig | grep -Eo 'inet (192\.168\.)[0-9]*\.[0-9]*' | sed -E 's/inet //g')
-    [ ! -n $ip ] && \
-        ip=$(ifconfig | grep -Eo 'inet (10\.137\.)[0-9]*\.[0-9]*' | sed -E 's/inet //g')
-
-    printf "wlan ip: $ip ---> $ip_gitshare \n"
-    printf "%s" "$ip" > $ip_gitshare
-    
-    git -C "$trx_git_dir" \
-        commit $ip_gitshare -m "updating wlan ip file for trx"
-    git -C "$trx_git_dir" \
-        push
-}
-
-_ip_ssh_push() {
-    # TASK: use ssh to push it directly to linux from termux.
-    echo ""
-    #rsync -avP ..
-}
-
-_ip_find() {
-    nmap -n \
-        -sn 192.168.64.0/24 \
-        -oG - \
-        | awk '/Up$/{print $2}' \
-        | head -n 1 $ip_nmap_ls - > $ip_manual
-    #> $ip_nmap_ls
-}
-
-_ip_find_10() {
-    nmap -n \
-        -sn 10.137.70.0/24 \
-        -oG - \
-        | awk '/Up$/{print $2}' \
-        | tail -n 1 $ip_nmap_ls - > $ip_manual
-    #> $ip_nmap_ls
-}
-
-
-
-# configure
-
-_sshd_pass_switch() {
-    printf "%s \n" \
-        "PrintMotd yes" \
-        "PasswordAuthentication $1 " \
-        "Subsystem sftp /data/data/com.termux/files/usr/libexec/sftp-server" > $XDG_CACHE_HOME/sshd_config
-    rsync -avz $XDG_CACHE_HOME/sshd_config ${ipi}:${cfg_sshd}
-}
-
+#source ${TRX_CFG}
 
 # system backup
 
-termux_backup() {
+bkp_trx() {
     #TODO
     termux-backup
 }
 
-exp_firefox() {
+bkp_exp_ff() {
     dir_dat_moz="/data/data/org.mozilla.firefox/files/mozilla"
     exp_dst="/sdcard/0/d/tabs"
     exp_dst_cp="/sdcard/0s/firefox-backup"
@@ -150,6 +53,17 @@ exp_firefox() {
     cp ${dir_dat_moz}//*.default/ ${exp_dst_cp}
 }
 
+
+# sshfs
+
+sshfs_c() {
+    sshfs $sshfs_dst $sshfs_mnt \
+        -o follow_symlinks \
+        -oStrictHostKeyChecking=no -C \
+        $@
+}
+
+sshfs_x() { sshfs ${1} ${sshfs_mnt} ;}
 
 
 # rsync
@@ -162,7 +76,9 @@ rs-mv() {
         $src $dst
 }
 
-rs-syc-cmd() {
+#rs-mv-x() { }
+
+rs-syc-c() {
     rsync -avP $opt \
         --delete \
         --exclude=$excl \
@@ -176,14 +92,13 @@ rs-syc-lp() {
     for src in $src_ls; do
         [ ! -d $(readlink ${src_i}) ] && continue
         #src=$src_root/$src_i
-        rs-syc-cmd
+        rs-syc-c
     done
 }
 
-rs-syc-ini() {
-    src="$src_root$src_i/"
-    dst="$hst:$dst_root$dst_i/"
-}
+rs-syc-lpx() { src_ls_file="${1}"; dst="${2}"; rs-syc-lp; }
+
+rs-syc-x() { src="${1}"; dst="${2}"; rs-syc-c; }
 
 r_for() {
     src_ls_file="$1"
@@ -197,208 +112,47 @@ r_for() {
     done
 }
 
-
-# bootstrap
-
-bootstrap_ini() {
-
-    pkg upgrade
-    pkg install -y git openssh neovim zsh rsync git make
-    mkdir .local/pkg .xx
-
-    chsh zsh
-    passwd
-    sshd
-    ssh-keygen
-
-    echo "now take the following actions before proceeding"
-    echo "1) On Linux: 'trx ip-resolv'"
-    echo "2) On Linux: configure .ssh/config with new device & set it in .ssh/host-i"
-    echo "3) On Linux: ssh-copy-id device-name"
-    echo "4) On Linux: test ssh connection"
-    echo "5) On Linux: cp keys to gh - 'trx bootstrap-gh termux-device-name'"
-    read -r -p "Completed? (y/n)" answer
-    [[ ${answer} =~ "y" ]] || exit
-}
-
-bootstrap_gh() {
-    # run from linux machine after ssh key exchange
-    _sshd_pass_switch "no"
-    rsync -avz /dat/ud/deva/trx/  ${ipi}:~/.local/pkg/trx/
-    scp /dat/ud/deva/trx/trx ${ipi}:$trx_r/usr/bin/trx
-    #ssh ${ipi} cat .ssh/id_ed25519.pub | gh ssh-key add - --title "$1"
-    echo "now take the following actions before proceeding"
-    echo "2) On Termux: termux-change-repo"
-    echo "3) On Termux: termux-setup-storage"
-    read -r -p "Completed? (y/n)" answer
-    [[ ${answer} =~ "y" ]] || exit
-}
-
-bootstrap_clone() {
-    git clone git@github.com:iarxm/dot.git   ~/.xx/cfg
-    git clone git@github.com:iarxm/dotx.git  ~/.xx/cfgx
-    git clone git@github.com:iarxm/sh.git    ~/.xx/bin
-    git clone git@github.com:iarxm/dd.git    ~/dd
-    git clone git@github.com:iarxm/uboot.git ~/.local/pkg/uboot
-    # how can i package up my personal programs from distinct git projects?
-    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.local/pkg/powerlevel10k
-}
-
-bootstrap_install() {
-    pkg install -y $(< "$trx_cfg_dir/pkg-manual.txt")
-    pip install -y $(< "$trx_cfg_dir/pkg-pip.txt")
-    nvim -c 'PlugInstall'
-}
-
-bootstrap_configure() {
-    # lng termux
-    echo ""
-}
-
-bootstrap() {
-    # TODO: upload bootstrap_ini function as an init script which is accessible public
-    #   curl https://github.com/iarxm/trx-init.git - can i make a short gyst to 
-    # - [ ] LINK FARM (after termux-setup-storage)
-    # - [ ] zsh powerlevel10k setup 
-    bootstrap_clone
-    #bootstrap_install
-    #bootstrap_configure
-}
-
-
-adb_cfg_neutron() {
-    adb shell settings put secure icon_blacklist hotspot,mobile,battery
-        #adb shell settings put secure icon_blacklist hotspot,mobile,battery,clock
-        #adb shell content insert --uri content://settings/system --bind name:s:status_bar_show_battery_percent --bind value:i:1
-}
-
-
 case $cmd in
-# termux
-    pkg_ls) ;;            # TODO: generate package lists
-    sshd_p_on)            _sshd_pass_switch "yes" ;;
-    sshd_p_off)           _sshd_pass_switch "no" ;;
-    exp_firefox)          exp_firefox ;;
-# linux connect
-  # ip
-    ip-echo|echo)         echo "${ipi}" ;;
-    ip-echo-git)          echo "${ipy}" ;;
-    ip-set-manual)        echo "$1" > $ip_manual ;;
-    ip|ip-resolv)         _ip_resolv ;;
-    ip-git-pull)          _ip_git_pull ;;
-    ip-git-push)          _ip_git_push ;;
-    ip-ssh-push)          _ip_ssh_push ;;
-    ip-find-nmap)         _ip_find ;;
-    ssh-neutron)          ipi="x@neutron"; _ssh ;;
-  # ssh
-    ssh|ssh-termux)       _ssh ;;
-    ssh-usb)              adb_set; ipi="localhost"; _ssh ;;
-    ssh-copyid)           ssh-copy-id -p 8022 "${ipi}" ;;
-    mosh|mosh-termux)     _mosh tmux ;;
-    mosh-i)               _mosh tmux ;;
+    pkg_ls)                ;; # TODO: generate package lists
+    bkp_exp_ff)           bkp_exp_ff ;;
+    bkp_trx)              bkp_trx ;;
 # sshfs
-    sshfs|sshfs-termux)   _sshfs_cmd $@ ;;
-    sshfs-neutron-emu)    sshfs_dst="x@neutron:$emu_r"; _sshfs_cmd $@ ;;
-    sshfs-adb)            adb_set; sshfs_dst="localhost:~"; _sshfs_cmd $@ ;;
-# boot and config
-    adb-neutron-settings) adb_cfg_neutron;;
-    bootstrap)            bootstrap ;;
-    bootstrap-gh)         bootstrap_gh ${@} ;;
-# syc & mv
-# TODO: just use rclone with pre-configured destinations and sources?
-# - would work well with the self-containment of ssh links approach
-# syc 2 trx
-    syc-2t)
-        exit #TODO
-        src="/dat/$1"
-        dst="$ipi:~/0s/$2/"
-        rs-syc-cmd ;;
-    syc-2t-ls-a)
-        exit #TODO
-        src_ls_file="${trx-dir}/syc-list-aa"
-        dst="$ipi:$(cat ${trx-dir}/syc-list-aa-dst)"
-        rs-syc-lp ;;
-    syc-2tx-ls-a)
-        exit #TODO
-        rs-syc-lp ;;
-# syc 2 linux
+    sshfs|sshfs-termux)   sshfs_c $@ ;;
+    sshfs-neutron-emu)    sshfs_x n:~/ $@ ;;
+    sshfs-adb)            sshfs_x localhost:~/ $@ ;;
+# 2 trx
+    syc-2t)           rs-syc-x   "/dat/$1" "$ipi:~/zz/$2/" ;;
+    syc-2t-ls-a)      rs-syc-lpx "${ls_x}" "$ipi:$(cat ${trx-dir}/syc-list-aa-dst)" ;;
+    syc-2t-ls-y)      rs-syc-lpx ${ls_y} ;;
+    #syc-2t-ls)        rs-syc-lp ;;
+# 2 linux
+    mv-2l)            rs-mv-x "localhost:~/zs/$2" "/dat/$1" ;;
     syc-2l)
         exit #TODO
         src="$ipi:~/zs/$1"
         dst="/dat/xs/trx-syc/$2"
         rs-syc
         ;;
-    syc-2l-imp-full)
-        exit #TODO # full backup of android 'storage' filesystem to /data
-        src="/"
-        dst="dr/syc.zs"
-        rs-syc
-        ;;
-    syc-2l-neutron)
-        exit #TODO
-        ipi="neutron"
-        src="$ipi:~/zs/$1"
-        dst="/dat/xs/trx-syc/$2"
-        rs-syc
-        ;;
-# adb usb
-    syc-2t-adb)
-        exit #TODO
-        src="/dat/$1/"
-        dst="localhost:~/sac/$2/"
-        adb_set
-        rs-syc
-        ;;
-    syc-2t-adb-ls-a)
-        exit #TODO
-        src_ls_file="/home/$USER/.local/bin/drlsaa"
-        opt="$1"
-        r_for $src_ls_file \
-            $opt
-        ## docs
-        # 'if' test above is important for filtering out list items which arent directories 
-        # each a typo which leads to the list item being root -
-        # rclone then syncs the whole contents of root..
-        # dst_prfx="$3"
-        ;;
-    syc-2l-adb)
-        exit #TODO
-        src="localhost:~/zs/$1"
-        dst="/dat/xs/$2"
-        adb_set
-        rs-syc $src $dst $opt
-        ;;
-    syc-usb_bkful)
-        exit #TODO
-        # full backup of android 'storage' filesystem
-        src_i="/"
-        dst_i="dr/syc.zs"
-        adb_set
-        rs-syc-cmd
-        ;;
-    syc-usb-2trx)
-        exit #TODO
-        src="/data/ts/$1"
-        dst="localhost:~/zs/$2"
-        adb_set
-        rs-syc-cmd
-        ;;
-    mv-usb-2dat)
-        exit #TODO
-        src="~/$1"
-        dst="localhost:/dat/ts/$2"
-        adb_set
-        rs-mv
-        ;;
-    mv-usb-2trx)
-        exit #TODO
-        src="/dat/$1"
-        dst="localhost:~/zs/$2"
-        adb_set
-        rs-mv
+    syc-bkp-fulx) rs-syc-c ${ipi}:~/zr/ "/dat/xs/trx-syc/$2" ;;
+    syc-bkp-ful)
+        rs-syc-c ${ipi}:~/zz/ /dat/xs/...
+        rs-syc-c ${ipi}:~/zz/ /dat/xs/...
         ;;
 esac
-
+# - [ ] use rlone with pre-configured destinations and sources?
+#      - would work well with the self-containment of ssh links approach
 # - [x] auto install package list
 # - [x] Add prompts to confirm actions.. Or to begin ?
 # - [x] Perhaps a set of initial prompts to trigger each section on or off..
+#trx_cfg_dir="${XDG_CONFIG_HOME}/zu.ctrl/linux-termux"
+#trx_r="/data/data/com.termux/files"
+#_ssh()       { ssh "${ipi}" $@; }
+#_mosh()      { mosh --ssh="ssh -p 8022 -i ~/.ssh/id_rsa" "${ipi}" $@; }
+  # ssh
+    #ssh|ssh-termux)       _ssh ;;
+    #ssh-neutron)          ipi="x@neutron"; _ssh ;;
+    #ssh-adb)              ipi="localhost"; _ssh ;; # first run trx ip-adb
+    #mosh|mosh-termux)     _mosh tmux ;;
+    #mosh-i)               _mosh tmux ;;
+
+    #syc-2t-adb)       rs-syc-x  "/dat/$1/" "localhost:~/sac/$2/" ;;

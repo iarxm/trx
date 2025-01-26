@@ -1,0 +1,77 @@
+#!/bin/env bash
+
+# IAROM MADDEN mail@iarom.org
+
+# - [ ] how can i package up my personal programs from distinct git projects? reduce dependency on pulling multiple and entire git repo's. instead just pull a repo full of the built up to date progs?
+
+trg_cfg_dir="${HOME}/.xx/cfgx/zu.ctrl/linux-termux"
+ipi=$(cat "${ssh_cfg_dir}/host-i" 2>/dev/null)
+
+sshd_pass_switch() {
+    printf "%s\n" \
+        "PrintMotd yes" \
+        "PasswordAuthentication $1 " \
+        "Subsystem sftp /data/data/com.termux/files/usr/libexec/sftp-server" \
+        > "/data/data/com.termux/files/usr/etc/ssh/sshd_config"
+}
+
+git_clone() { [ -d "${2}" ] || git clone ${1} "${2}"; }
+
+bootstrap_linux_gh() {
+    # run from linux machine after ssh key exchange
+    rsync -avz /dat/ud/deva/trx ${ipi}:~/.local/pkg/trx/
+    ssh ${ipi} 'cd ~/.local/pkg/trx && make install-termux'
+    ssh ${ipi} 'cat .ssh/id_ed25519.pub' | gh ssh-key add - --title "$1"
+    echo "execute the following actions before proceeding"
+    echo "2) on termux: termux-change-repo"
+    echo "3) on termux: termux-setup-storage"
+    read -r -p "completed? (y/n)" answer
+    [[ ${answer} =~ "y" ]] || exit
+}
+
+
+bootstrap_clone() {
+    git_clone git@github.com:iarxm/dot.git   "${HOME}/.xx/cfg"
+    git_clone git@github.com:iarxm/dotx.git  "${HOME}/.xx/cfx"
+    git_clone git@github.com:iarxm/sh.git    "${HOME}/.xx/bin"
+    git_clone git@github.com:iarxm/dd.git    "${HOME}/dd"
+    git_clone git@github.com:iarxm/uboot.git "${HOME}/.local/pkg/uboot"
+    
+    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.local/pkg/p10k
+}
+
+bootstrap_install() {
+    pkg install -y $(< "$trx_cfg_dir/pkg-man.txt")
+    pip install -y $(< "$trx_cfg_dir/pkg-pip.txt")
+    nvim --headless -c 'Lazy sync' +qa
+    lng termux
+}
+
+bootstrap_configure() {
+    sshd_pass_switch "no"
+}
+
+bootstrap() {
+    # - [ ] upload bootstrap_ini function as an init script which is accessible public
+    # - [ ] LINK FARM (after termux-setup-storage)
+    # - [ ] zsh powerlevel10k setup 
+    bootstrap_clone
+    bootstrap_install
+    bootstrap_configure
+}
+
+adb_cfg_neutron() {
+    adb shell settings put secure icon_blacklist hotspot,mobile,battery
+    #adb shell settings put secure icon_blacklist hotspot,mobile,battery,clock
+    #adb shell content insert --uri content://settings/system --bind name:s:status_bar_show_battery_percent --bind value:i:1
+}
+
+case $cmd in
+    adb-cfg)              adb_cfg_neutron ;;
+    sshd-p-on)            sshd_pass_switch "yes" ;;
+    sshd-p-off)           sshd_pass_switch "no" ;;
+    ssh-copyid)           ssh-copy-id -p 8022 "${ipi}" ;;
+    bootstrap-gh)         bootstrap_gh ${@} ;;
+    bootstrap)            bootstrap ;;
+esac
+
