@@ -14,15 +14,19 @@
 #   a)              trx mosh.imp ;;
 #   b)              trx sshfs.imp ;;
 
+#TODO: consider setting up a dns hook upon networkmanager event for connecting 
+#to the hotspot, to resolve the gateway ip with a hostname and inject it
+#reduces complexity of current ssh proxycommand method and external script 
+
 cmd=$1 && shift 1
 
 ## vars
 
 trx_git_dir="$HOME/.local/share/aax/trx"
-trx_cfg_dir="${XDG_CONFIG_HOME}/trx"
+trx_cfg_dir="${XDG_CONFIG_HOME}/zu.ctrl/linux-termux"
 ssh_cfg_dir="${HOME}/.ssh"
 
-host_i=$(cat "${ssh_cfg_dir}/host-i")
+host_i=$(cat "${ssh_cfg_dir}/host-i" 2>/dev/null)
 ipi="${host_i}"
 
 ip_gitshare="${trx_git_dir}/host-${host_i}-ip-wlan"
@@ -100,9 +104,7 @@ _ip_ssh_push() {
     #rsync -avP ..
 }
 
-
 _ip_find() {
-
     nmap -n \
         -sn 192.168.64.0/24 \
         -oG - \
@@ -125,13 +127,20 @@ _ip_find_10() {
 # configure
 
 _sshd_pass_switch() {
-    printf "%s \n" "PrintMotd yes" \
+    printf "%s \n" \
+        "PrintMotd yes" \
         "PasswordAuthentication $1 " \
-        "Subsystem sftp /data/data/com.termux/files/usr/libexec/sftp-server" > $cfg_sshd
+        "Subsystem sftp /data/data/com.termux/files/usr/libexec/sftp-server" > $XDG_CACHE_HOME/sshd_config
+    rsync -avz $XDG_CACHE_HOME/sshd_config ${ipi}:${cfg_sshd}
 }
 
 
 # system backup
+
+termux_backup() {
+    #TODO
+    termux-backup
+}
 
 exp_firefox() {
     dir_dat_moz="/data/data/org.mozilla.firefox/files/mozilla"
@@ -191,63 +200,72 @@ r_for() {
 
 # bootstrap
 
-bootstrap_init() {
+bootstrap_ini() {
+
     pkg upgrade
-    pkg install git openssh neovim
+    pkg install -y git openssh neovim zsh rsync
+    mkdir .local/pkg .xx
+
+    chsh zsh
+    passwd
+    sshd
+    ssh-keygen
+
+    echo "now take the following actions before proceeding"
+    echo "1) On Linux: 'trx ip-resolv'"
+    echo "2) On Linux: configure .ssh/config with new device & set it in .ssh/host-i"
+    echo "3) On Linux: ssh-copy-id device-name"
+    echo "4) On Linux: test ssh connection"
+    echo "5) On Linux: cp keys to gh - 'trx bootstrap-gh termux-device-name'"
+    read -r -p "Completed? (y/n)" answer
+    [[ ${answer} =~ "y" ]] || exit
+}
+
+bootstrap_gh() {
+    # run from linux machine after ssh key exchange
+    _sshd_pass_switch "no"
+    rsync -avz /dat/ud/deva/trx/  ${ipi}:~/.local/pkg/trx/
+    scp /dat/ud/deva/trx/trx ${ipi}:$trx_r/usr/bin/trx
+    #ssh ${ipi} cat .ssh/id_ed25519.pub | gh ssh-key add - --title "$1"
     
-    #TODO: upload ssh keys to github
-    #TODO: upload an init script which is accessible public
+    echo "now take the following actions before proceeding"
+    echo "2) On Termux: termux-change-repo"
+    echo "3) On Termux: termux-setup-storage"
+    read -r -p "Completed? (y/n)" answer
+    [[ ${answer} =~ "y" ]] || exit
 }
 
 bootstrap_clone() {
-    git clone ssh://git@github.com/futuresurf/cfg .config.new
-    mv .config .delete-config
-    mv .config.new .config
-    
-    git clone ssh://git@github.com/futuresurf/cfgb .local/bin.new
-    mv .local/bin .delete-bin
-    mv .local/bin.new .local/bin
-
-    git clone ssh://git@github.com/futuresurf/dd
-    
-    pkgdir=$HOME/.local/pkg
-    [[ -d $pkgdir ]] || mkdir $pkgdir
+    git clone git@github.com:iarxm/dot.git   .xx/cfg
+    git clone git@github.com:iarxm/dotx.git  .xx/cfgx
+    git clone git@github.com:iarxm/sh.git    .xx/bin
+    git clone git@github.com:iarxm/dd.git     dd
+    git clone git@github.com:iarxm/uboot.git .local/pkg/uboot
+    # how can i package up my personal programs from distinct git projects?
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.local/pkg/powerlevel10k
 }
 
 bootstrap_install() {
-    # pkg setup
-    apt-get update # update package lists
-    cat $trx_cfg_dir/pkgs-pkg.txt | xargs pkg install
-    #cat $trx_cfg_dir/pkgs-apt.txt | xargs apt-get install -y
-    #cat $trx_cfg_dir/pkgs-pip.txt | xargs pip install -y
-    # Command which filters out matching patterns..?
+    pkg install -y $(< "$trx_cfg_dir/pkg-manual.txt")
+    pip install -y $(< "$trx_cfg_dir/pkg-pip.txt")
     nvim -c 'PlugInstall'
 }
 
 bootstrap_configure() {
-    # configure home
-    chsh -s zsh
-    termux-setup-storage
     # lng termux
-    # other
+    echo ""
 }
 
 bootstrap() {
-    # - auto install package list
-    # TODO
-    # - Add prompts to confirm actions.. Or to begin ?
-    # - Perhaps a set of initial prompts to trigger each section on or off..
-    # - LINK FARM (after termux-setup-storage)
-    # - zsh powerlevel10k setup 
-    # - modify above to install powerlevel 10k and then use the location based on whether using termux..
-    bootstrap_ini
+    # TODO: upload bootstrap_ini function as an init script which is accessible public
+    #   curl https://github.com/iarxm/trx-init.git - can i make a short gyst to 
+    # - [ ] LINK FARM (after termux-setup-storage)
+    # - [ ] zsh powerlevel10k setup 
     bootstrap_clone
-    bootstrap_install
-    bootstrap_configure
+    #bootstrap_install
+    #bootstrap_configure
 }
-## testing
-#bootstrap_ini
+
 
 adb_cfg_neutron() {
     adb shell settings put secure icon_blacklist hotspot,mobile,battery
@@ -264,14 +282,14 @@ case $cmd in
     exp_firefox)          exp_firefox ;;
 # linux connect
   # ip
-    ip-echo|echo)           echo "${ipi}" ;;
-    ip-echo-git)            echo "${ipy}" ;;
-    ip-set-manual)          echo "$1" > $ip_manual ;;
-    ip|ip-resolv)           _ip_resolv ;;
-    ip-git-pull)            _ip_git_pull ;;
-    ip-git-push)            _ip_git_push ;;
-    ip-ssh-push)            _ip_ssh_push ;;
-    ip-find-nmap)           _ip_find ;;
+    ip-echo|echo)         echo "${ipi}" ;;
+    ip-echo-git)          echo "${ipy}" ;;
+    ip-set-manual)        echo "$1" > $ip_manual ;;
+    ip|ip-resolv)         _ip_resolv ;;
+    ip-git-pull)          _ip_git_pull ;;
+    ip-git-push)          _ip_git_push ;;
+    ip-ssh-push)          _ip_ssh_push ;;
+    ip-find-nmap)         _ip_find ;;
     ssh-neutron)          ipi="x@neutron"; _ssh ;;
   # ssh
     ssh|ssh-termux)       _ssh ;;
@@ -281,11 +299,12 @@ case $cmd in
     mosh-i)               _mosh tmux ;;
 # sshfs
     sshfs|sshfs-termux)   _sshfs_cmd $@ ;;
-    sshfs-neutron-emu)    sshfs_dst=""x@neutron:$emu_r"; _sshfs_cmd $@ ;;
+    sshfs-neutron-emu)    sshfs_dst="x@neutron:$emu_r"; _sshfs_cmd $@ ;;
     sshfs-adb)            adb_set; sshfs_dst="localhost:~"; _sshfs_cmd $@ ;;
 # boot and config
     adb-neutron-settings) adb_cfg_neutron;;
     bootstrap)            bootstrap ;;
+    bootstrap-gh)         bootstrap_gh ${@} ;;
 # syc & mv
 # TODO: just use rclone with pre-configured destinations and sources?
 # - would work well with the self-containment of ssh links approach
@@ -381,16 +400,6 @@ case $cmd in
         ;;
 esac
 
-# nmap approach
-# nmap scan local hotspot for ip address
-# - selects first one in list and saves it as the useable ip
-# - android often assings device ip as ..244
-# - the android device is usually below this - as the first one in the list
-
-#ip_neutron_gitshare="${trx_git_dir}/host-neutron-ip-wlan"
-#ip_neutron_manual="${ssh_cfg_dir}/host-neutron-ip-wlan"
-#ip_neutron_macadr="${ssh_cfg_dir}/host-neutron-ip-mac"
-    #ip-set|ip-set-gitshare) echo "$1" > $ip_gitshare ;;
-    #ip-set-a)              echo "192.168.$1" > $ip_manual ;;
-#ip_nmap_ls="${ip_neutron_manual}_ls"
-
+# - [x] auto install package list
+# - [x] Add prompts to confirm actions.. Or to begin ?
+# - [x] Perhaps a set of initial prompts to trigger each section on or off..
