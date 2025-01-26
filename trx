@@ -203,7 +203,7 @@ r_for() {
 bootstrap_ini() {
 
     pkg upgrade
-    pkg install -y git openssh neovim zsh rsync
+    pkg install -y git openssh neovim zsh rsync git make
     mkdir .local/pkg .xx
 
     chsh zsh
@@ -227,7 +227,6 @@ bootstrap_gh() {
     rsync -avz /dat/ud/deva/trx/  ${ipi}:~/.local/pkg/trx/
     scp /dat/ud/deva/trx/trx ${ipi}:$trx_r/usr/bin/trx
     #ssh ${ipi} cat .ssh/id_ed25519.pub | gh ssh-key add - --title "$1"
-    
     echo "now take the following actions before proceeding"
     echo "2) On Termux: termux-change-repo"
     echo "3) On Termux: termux-setup-storage"
