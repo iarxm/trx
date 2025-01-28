@@ -29,14 +29,12 @@ bootstrap_linux_gh() {
     [[ ${answer} =~ "y" ]] || exit
 }
 
-
 bootstrap_clone() {
     git_clone git@github.com:iarxm/dot.git   "${HOME}/.xx/cfg"
     git_clone git@github.com:iarxm/dotx.git  "${HOME}/.xx/cfx"
     git_clone git@github.com:iarxm/sh.git    "${HOME}/.xx/bin"
     git_clone git@github.com:iarxm/dd.git    "${HOME}/dd"
     git_clone git@github.com:iarxm/uboot.git "${HOME}/.local/pkg/uboot"
-    
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.local/pkg/p10k
 }
 
@@ -52,9 +50,9 @@ bootstrap_configure() {
 }
 
 bootstrap() {
-    # - [ ] upload bootstrap_ini function as an init script which is accessible public
-    # - [ ] LINK FARM (after termux-setup-storage)
+    # - [ ] keep init bootstrap in uboot and keep public
     # - [ ] zsh powerlevel10k setup 
+    # - [x] LINK FARM (after termux-setup-storage)
     bootstrap_clone
     bootstrap_install
     bootstrap_configure
