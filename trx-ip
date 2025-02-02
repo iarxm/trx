@@ -1,13 +1,7 @@
 #!/bin/env bash
 
 # IAROM MADDEN mail@iarom.org
-#
-#TODO: consider setting up a dns hook upon networkmanager event for connecting 
-#to the hotspot, to resolve the gateway ip with a hostname and inject it
-#reduces complexity of current ssh proxycommand method and external script 
 
-
-# funcs
 
 adb_set() {
     # 2nd call sets up http server on termux
@@ -79,4 +73,9 @@ case $cmd in
     adb|ip-adb)           adb_set ;;
 
 esac
+
+# - [ ] consider dns hook upon networkmanager event for connecting 
+# to hotspot, to resolve gateway ip with hostname and inject
+# reduces complexity of current ssh proxycommand method and external script 
+
 

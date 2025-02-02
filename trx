@@ -77,7 +77,6 @@ case $cmd in
     bkp_pkg_ls)        ;; # TODO: generate package lists
     bkp_exp_ff)       bkp_exp_ff ;;
     bkp_trx)          bkp_trx ;;
-
     syc-2t)           rs-syc-x   "/dat/$1" "$ipi:~/zz/$2/" ;;
     syc-2t-ls-a)      rs-syc-lpx "${ls_x}" "$ipi:${dst_x}" ;;
     syc-2t-ls-y)      rs-syc-lpx "${ls_y}" ;;
@@ -90,7 +89,6 @@ case $cmd in
     ;;
 esac
 
-
 # - [ ] use rlone with pre-configured destinations and sources?
-#      - would work well with the self-containment of ssh links approach
+# - would work well with the self-containment of ssh links approach
 
