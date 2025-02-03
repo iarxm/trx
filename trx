@@ -10,32 +10,29 @@ ipi=$(cat "${ssh_cfg_dir}/host-i" 2>/dev/null)
 ip_git="${trx_git_dir}/host-${ipi}-ip-wlan" # ip shared via git
 ip_man="${ssh_cfg_dir}/host-${ipi}-ip-wlan"
 ip_mac="${ssh_cfg_dir}/host-${ipi}-ip-mac" # gateway interface mac address
-#ipy="$(cat ${ip_git} 2>/dev/null)"
-#ipx="$(cat ${ip_man} 2>/dev/null)"
-#ipm="$(cat ${ip_mac} 2>/dev/null)"
-#adr="$ipi:$emu_r"
+
 trx_h="/data/data/com.termux/files/home"
 emu_r="/storage/emulated/0/0/"
-trx-dir="${HOME}/.config/zu.ctrl/linux-termux"
-ls_x="${trx-dir}/syc-list-aa"
+trx_dir="${HOME}/.config/zu.ctrl/linux-termux"
+ls_x="${trx_dir}/syc-list-aa"
 ls_y="/home/$USER/.local/bin/drlsaa"
-dst_x="$(cat ${trx-dir}/syc-list-aa-dst)"
+dst_x="$(cat ${trx_dir}/syc-list-aa-dst)"
 
 #source ${TRX_CFG}
 
 # system backup
 
-bkp_trx() {
+bkp-trx() {
     #TODO
     termux-backup
 }
 
-bkp_exp_ff() {
+bkp-exp-ff() {
     dir_dat_moz="/data/data/org.mozilla.firefox/files/mozilla"
-    exp_dst="/sdcard/0/d/tabs"
-    exp_dst_cp="/sdcard/0s/firefox-backup"
-    sqlite3 ${dir_dat_moz}/*.default/browser.db "SELECT url FROM tabs ORDER BY position" > ${exp_dst}
-    cp ${dir_dat_moz}//*.default/ ${exp_dst_cp}
+    exp-dst="/sdcard/0/d/tabs"
+    exp-dst_cp="/sdcard/0s/firefox-backup"
+    sqlite3 ${dir_dat_moz}/*.default/browser.db "SELECT url FROM tabs ORDER BY position" > ${exp-dst}
+    cp ${dir_dat_moz}//*.default/ ${exp-dst_cp}
 }
 
 
@@ -74,9 +71,9 @@ rs-syc-lpx() { src_ls_file="${1}"; dst="${2}"; rs-syc-lp; }
 rs-syc-x()   { src="${1}"; dst="${2}"; rs-syc-c; }
 
 case $cmd in
-    bkp_pkg_ls)        ;; # TODO: generate package lists
-    bkp_exp_ff)       bkp_exp_ff ;;
-    bkp_trx)          bkp_trx ;;
+    bkp-pkg-ls)       ;; # TODO: generate package lists
+    bkp-exp-ff)       bkp-exp-ff ;;
+    bkp-trx)          bkp-trx ;;
     syc-2t)           rs-syc-x   "/dat/$1" "$ipi:~/zz/$2/" ;;
     syc-2t-ls-a)      rs-syc-lpx "${ls_x}" "$ipi:${dst_x}" ;;
     syc-2t-ls-y)      rs-syc-lpx "${ls_y}" ;;
@@ -91,4 +88,7 @@ esac
 
 # - [ ] use rlone with pre-configured destinations and sources?
 # - would work well with the self-containment of ssh links approach
-
+#ipy="$(cat ${ip_git} 2>/dev/null)"
+#ipx="$(cat ${ip_man} 2>/dev/null)"
+#ipm="$(cat ${ip_mac} 2>/dev/null)"
+#adr="$ipi:$emu_r"
