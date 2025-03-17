@@ -6,7 +6,7 @@
 # reduce dependency on pulling multiple and entire git repo's.
 # instead just pull a repo full of the built up to date progs?
 
-trx_cfg_dir="${HOME}/.xx/cfx/zu-ctrl/linux-termux"
+trx_cfg_dir="${HOME}/.xx/cfb/zu-ctrl/linux-termux"
 trx_rpo="/dat/ud/deva/trx"
 ipi=$(cat "${ssh_cfg_dir}/host-i" 2>/dev/null)
 
