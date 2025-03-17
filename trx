@@ -84,11 +84,11 @@ main()
         bkp-pkg-ls)       ;; # TODO: generate package lists
         bkp-exp-ff)       bkp-exp-ff ;;
         bkp-trx)          bkp-trx ;;
-        syc-2t)           rs-syc-x   "/dat/$1" "$ipi:~/zz/$2/" ;;
-        syc-2t-ls-a)      rs-syc-lpx "${ls_x}" "$ipi:${dst_x}" ;;
+        syc-2t)           rs-syc-x   "/dat/${1}" "${ipi}:~/zz/${2}/" ;;
+        syc-2t-ls-a)      rs-syc-lpx "${ls_x}" "${ipi}:${dst_x}" ;;
         syc-2t-ls-y)      rs-syc-lpx "${ls_y}" ;;
-        mv-2l)            rs-mv-x    "localhost:~/zs/$2" "/dat/$1" ;;
-        syc-2l)           rs-syc-x   "${ipi}:~/zz/$1"    "/dat/xs/trx-syc/$2" ;;
+        mv-2l)            rs-mv-x    "localhost:~/zs/${2}" "/dat/${1}" ;;
+        syc-2l)           rs-syc-x   "${ipi}:~/zz/${1}"    "/dat/xs/trx-syc/${2}" ;;
         syc-bkp-fulx)     rs-syc-c   "${ipi}:~/zr/"      "/dat/xs/trx-syc/zr/" ;;
         syc-bkp-fuly)
                  rs-syc-c   ${ipi}:~/zz/   /dat/xs/...
@@ -105,4 +105,3 @@ main "${@}"
 #ipx="$(cat ${ip_man} 2>/dev/null)"
 #ipm="$(cat ${ip_mac} 2>/dev/null)"
 #adr="$ipi:$emu_r"
-
